@@ -1,4 +1,8 @@
 function [X_Lin_MPC, T_Lin_MPC, U_Lin_MPC, X_K_MPC_CLF, XD_Lin_MPC, u_Lin_MPC, U_FF_MPC_CLF] = MPC_Bez(p, dyn, o, T_FL_MPC, X_FL_MPC, U_FL_MPC)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% Set up optimizer problem %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 disp('Setting up proposed approach');
 
 % TODO: Q1) need to use a feasible (x,u) to start, which the following is not.
@@ -44,14 +48,10 @@ H2 = H^2;
 
 M = [2*alpha_MPCFL*beta_MPCFL beta_MPCFL;beta_MPCFL 0];
 [evec, eval] = eig(M);
-% normalized_evec = evec(:,1)/norm(evec(:,1));
 M_k = eval(2,2)*evec(:,2)*evec(:,2)';
 if(any(eig(M_k) < -eps))
    error('Construction of M_k failed'); 
 end
-
-% M_k = beta_MPCFL*[delta_MPCFL^3 delta_MPCFL^2;
-%     delta_MPCFL^2 delta_MPCFL];
 
 % MPC size
 state_dim = 2;
@@ -158,10 +158,10 @@ for i = 1:N-1
 %     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) <= p.Const.u_max-Gamma_k_(i)];
 %     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) >= p.Const.u_min+Gamma_k_(i)];
     % b_k in X \ominus E
-    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
     Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
 end
@@ -170,23 +170,23 @@ end
 Constraints = [Constraints states(state_dim*(N-1)+1:state_dim*(N-1)+2) == Xf];
 
 % Add this for ISS tube, which is not considered yet.
-Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.noise_mag^2];
+Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.E^2];
 % Constraints = [Constraints states(1:2) == x0_]; % placeholder
 
 Q = state_stage_cost*eye(state_dim*N);
 R = input_stage_cost*eye(input_dim*(N-1));
 Aux = aux_stage_cost*eye(auxiliary_dim*(N-1));
 W = 1e9;
-% Q = blkdiag(Q,R,Aux,1e9);
-% f = zeros(total_dim+1,1);
-Objective = 1/2*(states'*Q*states + inputs'*R*inputs + auxiliaries'*Aux*auxiliaries + slack'*W*slack);
 
-% SP_lyapQ_epsilon = 0.1;
-% SQP_lyapconverged = false;
+Objective = 1/2*(states'*Q*states + inputs'*R*inputs + auxiliaries'*Aux*auxiliaries + slack'*W*slack);
 
 P = optimizer(Constraints,Objective,sdpsettings('solver','mosek','verbose',0),...
     {Ad_,Bd_,Cd_,N_k_,Gamma_k_,x_lin_,u_lin_,x0_},...
     {states,inputs,auxiliaries,slack,pos1,pos2,pos3,pos4,vel1,vel2,vel3,vel4,u_k,s,t,w});
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Get linearizations at origin for backup plan
 x_F(i,:) = [0 0];
@@ -228,29 +228,7 @@ for iter = 1:p.ODE.tspan(end)/dt
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
         Gamma_k(i) = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
     end
-    
-    % Constrain acceleration of starting point
-    %         inputs = vars(state_end_index+1:input_end_index);
-    %         clear f_ g_ f_eval g_eval;
-    %         for i = 1:N-1
-    %             pos1 = vars((i-1)*state_dim+1);
-    %             vel1 = vars((i-1)*state_dim+2);
-    %             pos4 = vars((i)*state_dim+1);
-    %             vel4 = vars((i)*state_dim+2);
-    %             % Defined:
-    %             pos2 = dt/3*vel1+pos1;
-    %             pos3 = -dt/3*vel4+pos4;
-    %             vel2 = H(2,:)*[pos1 pos2 pos3 pos4]';
-    %             vel3 = H(3,:)*[pos1 pos2 pos3 pos4]';
-    %             p_dd_0(i) = H(1,:)*[vel1 vel2 vel3 vel4]';
-    %             f_eval = f_func_model(x_lin(i,1),x_lin(i,2));
-    %             f_(i) = f_eval(2);
-    %             g_eval = g_func_model(x_lin(i,1),x_lin(i,2));
-    %             g_(i) = g_eval(2);
-    %         end
-    
-    %         diagnostics = optimize(Constraints, 1/2*vars'*Q*vars + f'*vars + ...
-    %             0*norm(p_dd_0' - f_'-g_'.*inputs,2).^2,opts);
+
     [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,sampled_x0});
     if iter == 1 & diagnostics ~= 0
         error('Issue with Mosek in proposed');
@@ -261,7 +239,6 @@ for iter = 1:p.ODE.tspan(end)/dt
         Cd_km1 = [Cd_km1(:,2:end) Cd_at_origin];
         N_km1 = [N_km1(:,2:end) N_k_at_origin'];
         Gamma_km1 = [Gamma_km1(2:end); Gamma_k_at_origin];
-        % TODO: assumes terminal point is unforced equilibrium
         x_lin_km1 = [x_lin_km1(2:end,:); 0 0];
         u_lin_km1 = [u_lin_km1(2:end,:); 0];
         [sol, diagnostics,d1,d2,d3,d4] = P({Ad_km1,Bd_km1,Cd_km1,N_km1,Gamma_km1,x_lin_km1,u_lin_km1,sampled_x0});
@@ -274,28 +251,12 @@ for iter = 1:p.ODE.tspan(end)/dt
         x_lin_km1 = x_lin_k;
         u_lin_km1 = u_lin_k;
     end
-    
-    %     MPC_sol = value(vars);
-    
+
     t_FL_MPC = 0:dt:dt*(N-1);
-    %     x_FL_MPC = [MPC_sol(1:2:state_end_index) MPC_sol(2:2:state_end_index)];
-    %     u_lin = MPC_sol(state_end_index+1:input_end_index);
-    %     aux_vars = MPC_sol(input_end_index+1:auxiliary_end_index);
-    %     slack = MPC_sol(end);
     x_FL_MPC = [sol{1}(1:2:state_end_index) sol{1}(2:2:state_end_index)];
     u_lin_k = sol{2};
     aux_vars = sol{3};
     slack = sol{4};
-    
-    %         if norm(x_FL_MPC(1:end-1,:)-x_lin,2) < SP_lyapQ_epsilon
-    %             SQP_lyapconverged = true;
-    %         else
-    %             t_bar = t_FL_MPC;
-    %             x_bar = x_FL_MPC;
-    %             u_bar = [u_lin; 0];
-    %         end
-    %     end
-    %     SQP_lyapconverged = false;
     
     %%%%%%%%%%%%%%%%%%%%% Which model to use to reconstruct the continuous
     %%%%%%%%%%%%%%%%%%%%% time trajectory to track? %%%%%%%%%%%%%%%%%%%%%%
@@ -323,15 +284,8 @@ for iter = 1:p.ODE.tspan(end)/dt
     sigma = 1;
     
     %%% FL CLF1
-    %     v = @(x,t) quadprog(1,0, LGV(x,t), -gamma*V(x,t)-LFV(x,t),[],[],[],[],[],options);
     v = @(x,t) -max(0,(LFV(x,t)+gamma*V(x,t))/(LGV(x,t)'*LGV(x,t)))*LGV(x,t)';
     FL_CLF1 = @(t,x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + v(x,t) + d_x_dd(t));
-    
-    %%% FL CLF2
-    calF = @(x,t) Lf2y_func(x(1),x(2))-d_x_dd(t);
-    calG = @(x,t) LgLfy_func(x(1),x(2));
-    v = @(x,t) quadprog(calG(x,t)'*calG(x,t),calF(x,t)'*calG(x,t), LGV(x,t)*calG(x,t), -gamma*V(x,t)-LFV(x,t)-LGV(x,t)*calF(x,t),[],[],[],[],[],options);
-    FL_CLF2 = @(t,x) v(x,t);
     
     T = 0;
     X = [];
@@ -342,7 +296,6 @@ for iter = 1:p.ODE.tspan(end)/dt
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 low_level_dt],x0); % no low level
             case 'CLF'
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1((j-1)*low_level_dt,x0)),[0 low_level_dt],x0); % CLF1
-                %         [t,x] = ode45(@(t,x) f_func(x(1),x(2),t) + g_func(x(1),x(2),t)*(FL_CLF2(t,x')),[0 dt],x0); % CLF2 -- SLOW
             otherwise
                 error('That low level controller not implemented yet!');
         end
@@ -362,7 +315,6 @@ for iter = 1:p.ODE.tspan(end)/dt
                 u_Lin_MPC(i) = u_lin_k(1);
             case 'CLF'
                 u_Lin_MPC(i) = FL_CLF1(t(i),x(i,:));
-        %         u_Lin_MPC(i) = FL_CLF2(t(i),x(i,:));
         end
     end
     
@@ -394,3 +346,5 @@ for iter = 1:p.ODE.tspan(end)/dt
 end
 
 end
+
+
