@@ -7,7 +7,7 @@ g = [0; 1];
 rng('default')
 
 t_noise = linspace(0,p.ODE.tspan(end),p.sensor_samples_per_sec*p.ODE.tspan(end));
-w_noise = p.noise_mag*2*(rand(1,length(t_noise))-0.5);
+w_noise = p.noise_mag_sensor*2*(rand(1,length(t_noise))-0.5);
 
 % Model of system dynamics to use in controllers
 f_model = f;

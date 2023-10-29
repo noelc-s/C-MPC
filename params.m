@@ -18,7 +18,8 @@ p.ODE.X0 = [-2 -2];
 p.ODE.Xf = [0; 0];
 
 p.sensor_samples_per_sec = 30;
-p.noise_mag = 0.05;
+p.noise_mag = 0.05; % size of robust invariant
+p.noise_mag_sensor = 0.00; % noise added to the dynamics
 
 %% Gains
 % FL:
@@ -38,6 +39,10 @@ p.CLF.gamma = min(eig(p.CLF.Q))/max(eig(p.CLF.P_lyap));
 % MPC
 p.MPC.N = 70;
 p.MPC.dt = .1;
+p.ll_delay = 1; % mpc delay + 1
+
+p.ll_dt = 0.01;
+
 % MPC on Feedback Linearized system:
 if p.MPC.N*p.MPC.dt > p.ODE.tspan(2)
     error('There will be no (x_bar, u_bar) because sim was too short!');

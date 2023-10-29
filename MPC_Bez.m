@@ -1,4 +1,4 @@
-function [X_Lin_MPC, T_Lin_MPC, U_Lin_MPC, X_K_MPC_CLF, u_Lin_MPC, U_FF_MPC_CLF] = MPC_Bez(p, dyn, o, T_FL_MPC, X_FL_MPC, U_FL_MPC)
+function [X_Lin_MPC, T_Lin_MPC, U_Lin_MPC, X_K_MPC_CLF, XD_Lin_MPC, u_Lin_MPC, U_FF_MPC_CLF] = MPC_Bez(p, dyn, o, T_FL_MPC, X_FL_MPC, U_FL_MPC)
 disp('Setting up proposed approach');
 
 % TODO: Q1) need to use a feasible (x,u) to start, which the following is not.
@@ -8,6 +8,7 @@ u_bar = U_FL_MPC;
 
 x = p.ODE.X0;
 X_Lin_MPC = [];
+XD_Lin_MPC = [];
 T_Lin_MPC = [];
 U_Lin_MPC = [];
 X_K_MPC_CLF = [];
@@ -16,6 +17,7 @@ U_FF_MPC_CLF = [];
 N = p.MPC.N;
 Xf = p.ODE.Xf;
 dt = p.MPC.dt;
+low_level_dt = p.ll_dt;
 alpha_MPCFL = p.MPC_CLF.alpha_MPCFL; % Lf
 beta_MPCFL = p.MPC_CLF.beta_MPCFL;  % Lg
 gamma_MPCFL = p.MPC_CLF.gamma_MPCFL; % Robust_level_Set_value
@@ -203,8 +205,11 @@ N_k_at_origin = [2*alpha_MPCFL*beta_MPCFL*Gamma_MPCFL+alpha_MPCFL*norm_G_pinv+be
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
 Gamma_k_at_origin = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
 
+delay_buffer = repmat(x(end,:)', 1, p.ll_delay);
+
 for iter = 1:p.ODE.tspan(end)/dt
     disp(iter)
+    sampled_x0 = delay_buffer(:,1);
     x0 = x(end,:)';
     %     while(~SQP_lyapconverged)
     for i = 1:N-1
@@ -246,7 +251,7 @@ for iter = 1:p.ODE.tspan(end)/dt
     
     %         diagnostics = optimize(Constraints, 1/2*vars'*Q*vars + f'*vars + ...
     %             0*norm(p_dd_0' - f_'-g_'.*inputs,2).^2,opts);
-    [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,x0});
+    [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,sampled_x0});
     if iter == 1 & diagnostics ~= 0
         error('Issue with Mosek in proposed');
     elseif diagnostics ~= 0
@@ -259,7 +264,7 @@ for iter = 1:p.ODE.tspan(end)/dt
         % TODO: assumes terminal point is unforced equilibrium
         x_lin_km1 = [x_lin_km1(2:end,:); 0 0];
         u_lin_km1 = [u_lin_km1(2:end,:); 0];
-        [sol, diagnostics,d1,d2,d3,d4] = P({Ad_km1,Bd_km1,Cd_km1,N_km1,Gamma_km1,x_lin_km1,u_lin_km1,x0});
+        [sol, diagnostics,d1,d2,d3,d4] = P({Ad_km1,Bd_km1,Cd_km1,N_km1,Gamma_km1,x_lin_km1,u_lin_km1,sampled_x0});
     else
         Ad_km1 = Ad_k;
         Bd_km1 = Bd_k;
@@ -299,8 +304,8 @@ for iter = 1:p.ODE.tspan(end)/dt
     b = 1/3*(dt*x_FL_MPC(1,2)+3*x_FL_MPC(1,1));
     c = 1/3*(-dt*x_FL_MPC(2,2)+3*x_FL_MPC(2,1));
     d = x_FL_MPC(2,1);
-    d_x = @(t) a*(t/dt)^0*(1-t/dt)^3+3*b*(t/dt)^1*(1-t/dt)^2+3*c*(t/dt)^2*(1-t/dt)^1+d*(t/dt)^3*(1-t/dt)^0;
-    d_x_d = @(t) (3*d*t^2)/dt^3 - (3*c*t^2)/dt^3 - (3*a*(t/dt - 1)^2)/dt + (3*b*(t/dt - 1)^2)/dt + (6*b*t*(t/dt - 1))/dt^2 - (6*c*t*(t/dt - 1))/dt^2;
+    d_x = @(t) a*(t/dt).^0.*(1-t/dt).^3+3*b*(t/dt).^1.*(1-t/dt).^2+3*c*(t/dt).^2.*(1-t/dt).^1+d*(t/dt).^3.*(1-t/dt).^0;
+    d_x_d = @(t) (3*d*t.^2)/dt.^3 - (3*c*t.^2)/dt.^3 - (3*a*(t/dt - 1).^2)/dt + (3*b*(t/dt - 1).^2)/dt + (6*b*t.*(t/dt - 1))/dt^2 - (6*c*t.*(t/dt - 1))/dt^2;
     d_x_dd = @(t) (12*b*(t/dt - 1))/dt^2 - (6*a*(t/dt - 1))/dt^2 - (6*c*(t/dt - 1))/dt^2 + (6*b*t)/dt^3 - (12*c*t)/dt^3 + (6*d*t)/dt^3;
     
     %%%%%%%%%%%%%%%% Which low level controller to use %%%%%%%%%%%%%%%%%%%
@@ -328,15 +333,26 @@ for iter = 1:p.ODE.tspan(end)/dt
     v = @(x,t) quadprog(calG(x,t)'*calG(x,t),calF(x,t)'*calG(x,t), LGV(x,t)*calG(x,t), -gamma*V(x,t)-LFV(x,t)-LGV(x,t)*calF(x,t),[],[],[],[],[],options);
     FL_CLF2 = @(t,x) v(x,t);
     
-    switch p.low_level
-        case 'None'
-            [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 dt],x0); % no low level
-        case 'CLF'
-            [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1(t,x)),[0 dt],x0); % CLF1
-            %         [t,x] = ode45(@(t,x) f_func(x(1),x(2),t) + g_func(x(1),x(2),t)*(FL_CLF2(t,x')),[0 dt],x0); % CLF2 -- SLOW
-        otherwise
-            error('That low level controller not implemented yet!');
+    T = 0;
+    X = [];
+    for j = 1: dt / low_level_dt
+        x0 = x(end,:)';
+        switch p.low_level
+            case 'None'
+                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 low_level_dt],x0); % no low level
+            case 'CLF'
+                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1((j-1)*low_level_dt,x0)),[0 low_level_dt],x0); % CLF1
+                %         [t,x] = ode45(@(t,x) f_func(x(1),x(2),t) + g_func(x(1),x(2),t)*(FL_CLF2(t,x')),[0 dt],x0); % CLF2 -- SLOW
+            otherwise
+                error('That low level controller not implemented yet!');
+        end
+        T = [T; T(end) + t(2:end)];
+        X = [X; x(2:end,:)];
     end
+    t = T(2:end);
+    x = X;
+    delay_buffer(:,1:end-1) = delay_buffer(:,2:end);
+    delay_buffer(:,end)= x(end,:)';
     
     
     clear u_Lin_MPC;
@@ -353,14 +369,17 @@ for iter = 1:p.ODE.tspan(end)/dt
     if isempty(T_Lin_MPC)
         T_Lin_MPC = [T_Lin_MPC; t];
         X_Lin_MPC = [X_Lin_MPC; x];
+        XD_Lin_MPC = [XD_Lin_MPC; [d_x(t) d_x_d(t)]];
         U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC'];
         U_FF_MPC_CLF = [U_FF_MPC_CLF; u_lin_k(1)*ones(size(t))];
     else
         T_Lin_MPC = [T_Lin_MPC; t(2:end)+T_Lin_MPC(end)];
         X_Lin_MPC = [X_Lin_MPC; x(2:end,:)];
+        XD_Lin_MPC = [XD_Lin_MPC; [d_x(t(2:end)) d_x_d(t(2:end))]];
         U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC(2:end)'];
         U_FF_MPC_CLF = [U_FF_MPC_CLF; u_lin_k(1)*ones(size(t(2:end)))];
     end
+    XD_Lin_MPC(end,:) = NaN; % to separate trajectories
     
     X_K_MPC_CLF = [X_K_MPC_CLF; x_FL_MPC(1,:)];
     
