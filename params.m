@@ -19,7 +19,7 @@ p.ODE.Xf = [0; 0];
 
 p.sensor_samples_per_sec = 30;
 p.noise_mag_sensor = 0.00; % noise added to the dynamics
-p.E = 0.0201; % size of robust invariant
+p.E = 0.05; % size of robust invariant
 
 %% Gains
 % FL:
@@ -39,9 +39,10 @@ p.CLF.gamma = min(eig(p.CLF.Q))/max(eig(p.CLF.P_lyap));
 % MPC
 p.MPC.N = 70;
 p.MPC.dt = .01;
-p.ll_delay = 5; % mpc delay + 1
-
 p.ll_dt = 0.001;
+
+p.ll_delay = 0; % low_level_state_update delay in ll_ticks
+p.xd_delay = floor(0 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
 
 % MPC on Feedback Linearized system:
 if p.MPC.N*p.MPC.dt > p.ODE.tspan(2)
@@ -62,7 +63,7 @@ p.MPC_CLF.aux_stage_cost = 1;
 %% Constraints
 % State and Input bounds
 p.Const.A_in = [1 0; -1 0; 0 1; 0 -1];
-p.Const.b_in = [3; 3; 0.5; 2];
+p.Const.b_in = [10; 10; 0.5; 2];
 p.Const.u_max = 20;
 p.Const.u_min = -p.Const.u_max;
 
@@ -73,9 +74,9 @@ t_rho_t = @(t) p.Const.u_max*norm_G* t^2 ...
 w_mag = @(t) (p.MPC_CLF.alpha_MPCFL + 2*p.MPC_CLF.beta_MPCFL*p.Const.u_max...
     + norm([0 1; -p.FL.alpha_FL]))*t_rho_t(t) + norm_G*p.Const.u_max*t;
 
-
-delta_FL_dynamics = 0; %%% Set this to what it is supposed to be
-delta_MPC_dynamics = delta_FL_dynamics + p.ll_dt*w_mag(p.ll_dt);
+T_l_fresh = p.ll_delay * p.ll_dt;
+T_m_fresh = p.xd_delay * p.ll_dt;
+Delta_T_m = p.MPC.dt - p.ll_dt*(p.ll_dt-(T_m_fresh + T_l_fresh)) / p.ll_dt;
 
 delta_MPC_A_INIT = 0;
 delta_MPC_G_INIT = p.E;
@@ -87,6 +88,21 @@ D_x = (p.MPC_CLF.alpha_MPCFL + p.MPC_CLF.beta_MPCFL * p.Const.u_max) * ...
         max_norm_x + ...
         norm_G * p.Const.u_max;
 D_d = p.MPC_CLF.alpha_MPCFL*max_norm_x + p.MPC_CLF.beta_MPCFL * p.Const.u_max;
+
+delta_est_sensor = 0;
+delta_MPC_sensor = delta_est_sensor + T_m_fresh * D_x; % from (4)
+delta_MPC_dynamics = p.E + p.ll_dt*w_mag(p.ll_dt);
+
+delta_FL_tracking = p.E + p.ll_dt*w_mag(p.ll_dt);
+
+delta_FL_dynamics = p.E; % guarantee from MPC
+
+assert(delta_est_sensor +  T_m_fresh * D_x <= delta_MPC_sensor);                  % (4)
+assert(delta_MPC_G_INIT + delta_MPC_A_INIT + D_x*T_l_fresh <= delta_FL_dynamics); % (5)
+assert(delta_FL_tracking + delta_MPC_dynamics + ...
+    (T_m_fresh + T_l_fresh) * D_x + D_d * Delta_T_m <= delta_FL_dynamics);        % (6)
+
+% (7 and 9) are satisfied by definition of terminal set
 
 
 assert(p.E >= w_mag(p.ll_dt)); % size of robust invariant, must be > w_mag(t_ll);

@@ -51,7 +51,7 @@ for iter = 1:p.ODE.tspan(end)/dt
     x0 = x(end,:)';
     %     Constraints(end) = vars(1:state_dim) == x0';
     
-    [sol, diagnostics] = P(x0);
+    [sol, diagnostics,d1,d2,d3,d4] = P(x0);
     if diagnostics ~= 0
         error('Issue with Mosek in FL+MPC');
     end
