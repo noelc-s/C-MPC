@@ -158,10 +158,10 @@ for i = 1:N-1
 %     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) <= p.Const.u_max-Gamma_k_(i)];
 %     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) >= p.Const.u_min+Gamma_k_(i)];
     % b_k in X \ominus E
-    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
     Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
 end
@@ -231,9 +231,9 @@ for iter = 1:p.ODE.tspan(end)/dt
     end
 
     [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,sampled_x0});
-    if iter == 1 & diagnostics ~= 0
+    if iter == 1 & diagnostics ~= 0 
         error('Issue with Mosek in proposed');
-    elseif diagnostics ~= 0
+    elseif diagnostics ~= 0 || isnan(sol{1}(1))
         warning('Falling back on previous linearization')
         Ad_km1 = [Ad_km1(:,3:end) Ad_at_origin];
         Bd_km1 = [Bd_km1(:,2:end) Bd_at_origin];
@@ -251,6 +251,10 @@ for iter = 1:p.ODE.tspan(end)/dt
         Gamma_km1 = Gamma_k;
         x_lin_km1 = x_lin_k;
         u_lin_km1 = u_lin_k;
+    end
+
+    if isnan(sol{1}(1))
+        disp("why")
     end
 
     t_FL_MPC = 0:dt:dt*(N-1);
@@ -288,6 +292,10 @@ for iter = 1:p.ODE.tspan(end)/dt
     v = @(x,x_d) -max(0,(LFV(x,x_d)+gamma*V(x,x_d))/(LGV(x,x_d)'*LGV(x,x_d)))*LGV(x,x_d)';
     FL_CLF1 = @(x_d,x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + v(x,x_d) + x_d(3));
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    v = @(x_d, x) -p.FL.alpha_FL*eta(x,x_d); % auxiliary controller
+    FL = @(x_d, x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + x_d(3) + v(x_d,x)); % nonlinear controller
+
     if isempty(low_level_delay_buffer{1})
         for j = 1:(p.xd_delay+1)
             low_level_delay_buffer{1,j} = d_x;
@@ -312,6 +320,8 @@ for iter = 1:p.ODE.tspan(end)/dt
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 low_level_dt],x0); % no low level
             case 'CLF'
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1(x_d,x0)),[0 low_level_dt],x0); % CLF1
+            case 'FL'
+                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL(x_d,x0)),[0 low_level_dt],x0); % CLF1
             otherwise
                 error('That low level controller not implemented yet!');
         end
@@ -325,6 +335,8 @@ for iter = 1:p.ODE.tspan(end)/dt
                     u_Lin_MPC = [u_Lin_MPC; u_lin_k(1)];
                 case 'CLF'
                     u_Lin_MPC = [u_Lin_MPC; FL_CLF1(x_d,x0)];
+                case 'FL'
+                    u_Lin_MPC = [u_Lin_MPC; FL(x_d,x0)];
             end
         end
     end

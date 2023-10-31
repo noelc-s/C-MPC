@@ -2,7 +2,8 @@ function [d, o] = dynamics_and_outputs(p)
 % System Dynamics
 syms x1 x2 t
 x_sym = [x1 x2];
-f = [x2; x2.^3 + sin(x1)];
+% f = [x2; x2.^3 + sin(x1)];
+f = [x2; sin(x1)];
 g = [0; 1];
 rng('default')
 
