@@ -310,11 +310,11 @@ for iter = 1:p.ODE.tspan(end)/dt
     u_Lin_MPC = [];
     for j = 1: dt / low_level_dt
         x0 = x(end,:)';
-        x_d = [low_level_delay_buffer{1,1}((j-1)*low_level_dt);low_level_delay_buffer{2,1}((j-1)*low_level_dt);low_level_delay_buffer{3,1}((j-1)*low_level_dt);];
         low_level_delay_buffer(:,1:end-1) = low_level_delay_buffer(:,2:end);
         low_level_delay_buffer{1,end} = d_x;
         low_level_delay_buffer{2,end} = d_x_d;
         low_level_delay_buffer{3,end} = d_x_dd;
+        x_d = [low_level_delay_buffer{1,1}((j-1)*low_level_dt);low_level_delay_buffer{2,1}((j-1)*low_level_dt);low_level_delay_buffer{3,1}((j-1)*low_level_dt);];
         switch p.low_level
             case 'None'
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 low_level_dt],x0); % no low level
