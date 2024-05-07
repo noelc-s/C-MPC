@@ -144,24 +144,25 @@ for i = 1:N-1
     % Dynamics
     Constraints = [Constraints [pos4(i,1); vel4(i,1)] == Ad_(1:state_dim,(i-1)*state_dim+1:(i)*state_dim)*[pos1(i,1); vel1(i,1)] ...
         + Bd_(1:state_dim, i)*u_k(i,1) + Cd_(1:state_dim, i)];
-    %     Constraints = [Constraints norm(sqrtm(M_k)*s(:,i) + 1/2*inv(sqrtm(M_k))*N_k_(:,i),2) <= (1/4*N_k_(:,i)'*inv(M_k)*N_k_(:,i)-(u_max- Gamma_k_(i)))^(1/2)];
-    %     Constraints = [Constraints s(:,i)'*M_k*s(:,i) + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= u_max];
-    Constraints = [Constraints w(:,i) == [s(:,i); t(:,i)]];
-    Constraints = [Constraints t(:,i) + 1/4 + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= p.Const.u_max];
-    Constraints = [Constraints norm([P_ldl zeros(2,1); zeros(1,2) 1]*w(:,i),2) <= t(:,i) + 1/2];
-    Constraints = [Constraints [norm([pos1(i,1); vel1(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(1,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos2(i,1); vel2(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(2,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos3(i,1); vel3(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(3,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) <= p.Const.u_max-Gamma_k_(i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) >= p.Const.u_min+Gamma_k_(i)];
+    %%% inputs
+    % Constraints = [Constraints w(:,i) == [s(:,i); t(:,i)]];
+    % Constraints = [Constraints t(:,i) + 1/4 + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= p.Const.u_max];
+    % Constraints = [Constraints norm([P_ldl zeros(2,1); zeros(1,2) 1]*w(:,i),2) <= t(:,i) + 1/2];
+    % Constraints = [Constraints [norm([pos1(i,1); vel1(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(1,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
+    % Constraints = [Constraints [norm([pos2(i,1); vel2(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(2,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
+    % Constraints = [Constraints [norm([pos3(i,1); vel3(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(3,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
     % b_k in X \ominus E
-    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
-    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
-    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
-    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E+slack];
+    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E+slack];
+    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E+slack];
+    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E+slack];
     Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
 end
@@ -170,7 +171,8 @@ end
 Constraints = [Constraints states(state_dim*(N-1)+1:state_dim*(N-1)+2) == Xf];
 
 % Add this for ISS tube, which is not considered yet.
-Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.E^2];
+% Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.E^2];
+Constraints = [Constraints states(1:state_dim) == x0_];
 % Constraints = [Constraints states(1:2) == x0_]; % placeholder
 
 Q = state_stage_cost*eye(state_dim*N);

@@ -19,7 +19,7 @@ p.ODE.Xf = [0; 0];
 
 p.sensor_samples_per_sec = 30;
 p.noise_mag_sensor = 0.00; % noise added to the dynamics
-p.E = 0.001; % size of assumed disturbance invariant
+p.E = 0.075; % size of assumed disturbance invariant
 
 %% Gains
 % FL:
@@ -34,7 +34,7 @@ p.FL.alpha_FL = p.CLF.alpha_CLF;
 p.CLF.F = [0 1; 0 0];
 p.CLF.G = [0; 1];
 p.CLF.A = p.CLF.F - p.CLF.G*p.CLF.alpha_CLF;
-p.CLF.Q = eye(2);
+p.CLF.Q = 0.01*eye(2);
 p.CLF.P_lyap = lyap(p.CLF.A', p.CLF.Q);
 p.CLF.gamma = min(eig(p.CLF.Q))/max(eig(p.CLF.P_lyap));
 
@@ -44,7 +44,8 @@ p.MPC.dt = .1;
 p.ll_dt = 0.001;
 
 p.ll_delay = 0; % low_level_state_update delay in ll_ticks
-p.xd_delay = floor(0 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
+% p.xd_delay = floor(1 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
+p.xd_delay = floor(0.3 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
 
 % MPC on Feedback Linearized system:
 if p.MPC.N*p.MPC.dt > p.ODE.tspan(2)
@@ -53,7 +54,7 @@ end
 
 % MPC-CLF (proposed):
 p.MPC_CLF.order = 3;
-p.MPC_CLF.alpha_MPCFL = 1; % Lf
+p.MPC_CLF.alpha_MPCFL = .01; % Lf
 p.MPC_CLF.beta_MPCFL = 0;  % Lg
 p.MPC_CLF.gamma_MPCFL = 4*max(eig(p.CLF.P_lyap))^3/min(eig(p.CLF.Q))^2; % Robust_level_Set_value
 p.MPC_CLF.Gamma_MPCFL = sqrt(p.MPC_CLF.gamma_MPCFL*p.E^2/min(eig(p.CLF.P_lyap))); % E_bar (i.e. sqrt(gamma/lambda_min(P))
@@ -66,7 +67,7 @@ p.MPC_CLF.aux_stage_cost = 1;
 % State and Input bounds
 p.Const.A_in = [1 0; -1 0; 0 1; 0 -1];
 p.Const.b_in = [4; 4; 0.5; 0.5];
-p.Const.u_max = 20;
+p.Const.u_max = 2;
 p.Const.u_min = -p.Const.u_max;
 
 %% Specifications
@@ -90,7 +91,7 @@ Delta_T_m = p.MPC.dt - p.ll_dt*(p.MPC.dt-(T_m_fresh + T_l_fresh)) / p.ll_dt;
 
 % mpc related termns
 delta_MPC_A_INIT = 0;   % mpc assumes that it gets the true initial state
-delta_MPC_G_INIT = p.E; % the desired trajectory will be placed within E of the true inital state
+delta_MPC_G_INIT = 0;   % the desired trajectory will be placed at the inital state
 
 % variation in trajectories
 D_x = (p.MPC_CLF.alpha_MPCFL + p.MPC_CLF.beta_MPCFL * p.Const.u_max) * max_norm_x + norm_G * p.Const.u_max;
