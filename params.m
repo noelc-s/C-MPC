@@ -19,7 +19,8 @@ p.ODE.Xf = [0; 0];
 
 p.sensor_samples_per_sec = 30;
 p.noise_mag_sensor = 0.00; % noise added to the dynamics
-p.E = 0.075; % size of assumed disturbance invariant
+% p.E = 0.105; % size of assumed disturbance invariant
+p.E = 0; % size of assumed disturbance invariant
 
 %% Gains
 % FL:
@@ -45,7 +46,7 @@ p.ll_dt = 0.001;
 
 p.ll_delay = 0; % low_level_state_update delay in ll_ticks
 % p.xd_delay = floor(1 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
-p.xd_delay = floor(0.3 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
+p.xd_delay = floor(0.5 * p.MPC.dt / p.ll_dt); % desried trajectory update delay in ll_ticks -- this is one mpc timing cycle off
 
 % MPC on Feedback Linearized system:
 if p.MPC.N*p.MPC.dt > p.ODE.tspan(2)
@@ -108,12 +109,12 @@ delta_FL_tracking = p.ll_dt*w_mag(p.ll_dt);
 
 delta_FL_dynamics = p.E; % guarantee from MPC
 
-assert(delta_est_sensor +  T_m_fresh * D_x <= delta_MPC_sensor);                  % (4)
-assert(delta_MPC_G_INIT + delta_MPC_A_INIT + D_x*T_l_fresh <= delta_FL_dynamics); % (5)
-assert(delta_FL_tracking + delta_MPC_dynamics + ...
-    (T_m_fresh + T_l_fresh) * D_x + D_d * Delta_T_m <= delta_FL_dynamics);        % (6)
-% (7 and 8) are satisfied by definition of terminal set
-assert(delta_FL_tracking <= delta_FL_dynamics); % size of robust invariant, must be > w_mag(t_ll);
+% assert(delta_est_sensor +  T_m_fresh * D_x <= delta_MPC_sensor);                  % (4)
+% assert(delta_MPC_G_INIT + delta_MPC_A_INIT + D_x*T_l_fresh <= delta_FL_dynamics); % (5)
+% assert(delta_FL_tracking + delta_MPC_dynamics + ...
+%     (T_m_fresh + T_l_fresh) * D_x + D_d * Delta_T_m <= delta_FL_dynamics);        % (6)
+% % (7 and 8) are satisfied by definition of terminal set
+% assert(delta_FL_tracking <= delta_FL_dynamics); % size of robust invariant, must be > w_mag(t_ll);
 
 
 

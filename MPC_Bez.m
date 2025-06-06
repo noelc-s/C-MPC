@@ -159,10 +159,16 @@ for i = 1:N-1
     % Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
     % Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
     % Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
-    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E+slack];
-    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E+slack];
-    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E+slack];
-    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E+slack];
+    
+    % Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E+slack];
+
+    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E];
     Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
 end
@@ -231,7 +237,6 @@ for iter = 1:p.ODE.tspan(end)/dt
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
         Gamma_k(i) = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
     end
-
     [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,sampled_x0});
     if iter == 1 & diagnostics ~= 0 
         error('Issue with Mosek in proposed');
@@ -257,6 +262,9 @@ for iter = 1:p.ODE.tspan(end)/dt
 
     if isnan(sol{1}(1))
         disp("why")
+        % sol = prev_sol;
+        % sol{1} = [sol{1}(3:state_end_index); 0; 0];
+        % sol{2} = [sol{2}(2:end); 0];
     end
 
     t_FL_MPC = 0:dt:dt*(N-1);
@@ -264,6 +272,8 @@ for iter = 1:p.ODE.tspan(end)/dt
     u_lin_k = sol{2};
     aux_vars = sol{3};
     slack = sol{4};
+
+    % prev_sol = sol;
     
     %%%%%%%%%%%%%%%%%%%%% Which model to use to reconstruct the continuous
     %%%%%%%%%%%%%%%%%%%%% time trajectory to track? %%%%%%%%%%%%%%%%%%%%%%
