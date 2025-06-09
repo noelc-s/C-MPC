@@ -144,24 +144,31 @@ for i = 1:N-1
     % Dynamics
     Constraints = [Constraints [pos4(i,1); vel4(i,1)] == Ad_(1:state_dim,(i-1)*state_dim+1:(i)*state_dim)*[pos1(i,1); vel1(i,1)] ...
         + Bd_(1:state_dim, i)*u_k(i,1) + Cd_(1:state_dim, i)];
-    %     Constraints = [Constraints norm(sqrtm(M_k)*s(:,i) + 1/2*inv(sqrtm(M_k))*N_k_(:,i),2) <= (1/4*N_k_(:,i)'*inv(M_k)*N_k_(:,i)-(u_max- Gamma_k_(i)))^(1/2)];
-    %     Constraints = [Constraints s(:,i)'*M_k*s(:,i) + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= u_max];
-    Constraints = [Constraints w(:,i) == [s(:,i); t(:,i)]];
-    Constraints = [Constraints t(:,i) + 1/4 + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= p.Const.u_max];
-    Constraints = [Constraints norm([P_ldl zeros(2,1); zeros(1,2) 1]*w(:,i),2) <= t(:,i) + 1/2];
-    Constraints = [Constraints [norm([pos1(i,1); vel1(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(1,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos2(i,1); vel2(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(2,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos3(i,1); vel3(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(3,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) <= p.Const.u_max-Gamma_k_(i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) >= p.Const.u_min+Gamma_k_(i)];
+    %%% inputs
+    % Constraints = [Constraints w(:,i) == [s(:,i); t(:,i)]];
+    % Constraints = [Constraints t(:,i) + 1/4 + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= p.Const.u_max];
+    % Constraints = [Constraints norm([P_ldl zeros(2,1); zeros(1,2) 1]*w(:,i),2) <= t(:,i) + 1/2];
+    % Constraints = [Constraints [norm([pos1(i,1); vel1(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(1,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
+    % Constraints = [Constraints [norm([pos2(i,1); vel2(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(2,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
+    % Constraints = [Constraints [norm([pos3(i,1); vel3(i,1)]-x_lin_(i,:)',2); ...
+    %     norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(3,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
     % b_k in X \ominus E
-    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')];%+slack];
+    % Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    % Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.E^2)*diag(A_in*P_lyap*A_in')+slack];
+    
+    % Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E+slack];
+    % Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E+slack];
+
+    Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-p.E];
+    Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-p.E];
     Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
 end
@@ -170,7 +177,8 @@ end
 Constraints = [Constraints states(state_dim*(N-1)+1:state_dim*(N-1)+2) == Xf];
 
 % Add this for ISS tube, which is not considered yet.
-Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.E^2];
+% Constraints = [Constraints V_point(states(1:state_dim)-x0_) <= gamma_MPCFL*p.E^2];
+Constraints = [Constraints states(1:state_dim) == x0_];
 % Constraints = [Constraints states(1:2) == x0_]; % placeholder
 
 Q = state_stage_cost*eye(state_dim*N);
@@ -205,11 +213,12 @@ N_k_at_origin = [2*alpha_MPCFL*beta_MPCFL*Gamma_MPCFL+alpha_MPCFL*norm_G_pinv+be
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
 Gamma_k_at_origin = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
 
-delay_buffer = repmat(x(end,:)', 1, p.ll_delay);
+mpc_delay_buffer = repmat(x(end,:)', 1, p.ll_delay + 1);       % buffer for measured state
+low_level_delay_buffer = cell(3,p.xd_delay + 1); % buffer for desired trajectories
 
 for iter = 1:p.ODE.tspan(end)/dt
     disp(iter)
-    sampled_x0 = delay_buffer(:,1);
+    sampled_x0 = mpc_delay_buffer(:,1);
     x0 = x(end,:)';
     %     while(~SQP_lyapconverged)
     for i = 1:N-1
@@ -228,11 +237,10 @@ for iter = 1:p.ODE.tspan(end)/dt
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
         Gamma_k(i) = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
     end
-
     [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,sampled_x0});
-    if iter == 1 & diagnostics ~= 0
+    if iter == 1 & diagnostics ~= 0 
         error('Issue with Mosek in proposed');
-    elseif diagnostics ~= 0
+    elseif diagnostics ~= 0 || isnan(sol{1}(1))
         warning('Falling back on previous linearization')
         Ad_km1 = [Ad_km1(:,3:end) Ad_at_origin];
         Bd_km1 = [Bd_km1(:,2:end) Bd_at_origin];
@@ -252,11 +260,20 @@ for iter = 1:p.ODE.tspan(end)/dt
         u_lin_km1 = u_lin_k;
     end
 
+    if isnan(sol{1}(1))
+        disp("why")
+        % sol = prev_sol;
+        % sol{1} = [sol{1}(3:state_end_index); 0; 0];
+        % sol{2} = [sol{2}(2:end); 0];
+    end
+
     t_FL_MPC = 0:dt:dt*(N-1);
     x_FL_MPC = [sol{1}(1:2:state_end_index) sol{1}(2:2:state_end_index)];
     u_lin_k = sol{2};
     aux_vars = sol{3};
     slack = sol{4};
+
+    % prev_sol = sol;
     
     %%%%%%%%%%%%%%%%%%%%% Which model to use to reconstruct the continuous
     %%%%%%%%%%%%%%%%%%%%% time trajectory to track? %%%%%%%%%%%%%%%%%%%%%%
@@ -276,59 +293,80 @@ for iter = 1:p.ODE.tspan(end)/dt
     Q_lyap = eye(2);
     P_lyap_lyap = lyap(A_cl', Q_lyap);
     gamma = 1/max(eig(P_lyap_lyap));
-    eta = @(x,t) [x(1) - d_x(t); x(2) - d_x_d(t)];
-    V = @(x,t) eta(x,t)'*P_lyap_lyap*eta(x,t);
-    LFV = @(x,t) eta(x,t)'*(F'*P_lyap_lyap + P_lyap_lyap*F)*eta(x,t);
-    LGV = @(x,t) 2*eta(x,t)'*P_lyap_lyap*G;
+    eta = @(x,x_d) [x(1) - x_d(1); x(2) - x_d(2)];
+    V = @(x,x_d) eta(x,x_d)'*P_lyap_lyap*eta(x,x_d);
+    LFV = @(x,x_d) eta(x,x_d)'*(F'*P_lyap_lyap + P_lyap_lyap*F)*eta(x,x_d);
+    LGV = @(x,x_d) 2*eta(x,x_d)'*P_lyap_lyap*G;
     options = optimset('Display', 'off');
     sigma = 1;
     
     %%% FL CLF1
-    v = @(x,t) -max(0,(LFV(x,t)+gamma*V(x,t))/(LGV(x,t)'*LGV(x,t)))*LGV(x,t)';
-    FL_CLF1 = @(t,x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + v(x,t) + d_x_dd(t));
+    v = @(x,x_d) -max(0,(LFV(x,x_d)+gamma*V(x,x_d))/(LGV(x,x_d)'*LGV(x,x_d)))*LGV(x,x_d)';
+    FL_CLF1 = @(x_d,x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + v(x,x_d) + x_d(3));
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    v = @(x_d, x) -p.FL.alpha_FL*eta(x,x_d); % auxiliary controller
+    FL = @(x_d, x) o.LgLfy_func(x(1),x(2))\(-o.Lf2y_func(x(1),x(2)) + x_d(3) + v(x_d,x)); % nonlinear controller
+
+    if isempty(low_level_delay_buffer{1})
+        for j = 1:(p.xd_delay+1)
+            low_level_delay_buffer{1,j} = d_x;
+            low_level_delay_buffer{2,j} = d_x_d;
+            low_level_delay_buffer{3,j} = d_x_dd;
+        end
+    end
     
     T = 0;
     X = [];
+    ind = 1;
+    u_Lin_MPC = [];
     for j = 1: dt / low_level_dt
         x0 = x(end,:)';
+        low_level_delay_buffer(:,1:end-1) = low_level_delay_buffer(:,2:end);
+        low_level_delay_buffer{1,end} = d_x;
+        low_level_delay_buffer{2,end} = d_x_d;
+        low_level_delay_buffer{3,end} = d_x_dd;
+        x_d = [low_level_delay_buffer{1,1}((j-1)*low_level_dt);low_level_delay_buffer{2,1}((j-1)*low_level_dt);low_level_delay_buffer{3,1}((j-1)*low_level_dt);];
         switch p.low_level
             case 'None'
                 [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(u_lin_k(1)),[0 low_level_dt],x0); % no low level
             case 'CLF'
-                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1((j-1)*low_level_dt,x0)),[0 low_level_dt],x0); % CLF1
+                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL_CLF1(x_d,x0)),[0 low_level_dt],x0); % CLF1
+            case 'FL'
+                [t,x] = ode45(@(t,x) dyn.f_func_w(x(1),x(2),t) + dyn.g_func_w(x(1),x(2),t)*(FL(x_d,x0)),[0 low_level_dt],x0); % CLF1
             otherwise
                 error('That low level controller not implemented yet!');
         end
         T = [T; T(end) + t(2:end)];
         X = [X; x(2:end,:)];
+        mpc_delay_buffer(:,1:end-1) = mpc_delay_buffer(:,2:end);
+        mpc_delay_buffer(:,end)= x(end,:)';
+        for k = 1:size(x)
+            switch p.low_level
+                case 'None'
+                    u_Lin_MPC = [u_Lin_MPC; u_lin_k(1)];
+                case 'CLF'
+                    u_Lin_MPC = [u_Lin_MPC; FL_CLF1(x_d,x0)];
+                case 'FL'
+                    u_Lin_MPC = [u_Lin_MPC; FL(x_d,x0)];
+            end
+        end
     end
     t = T(2:end);
     x = X;
-    delay_buffer(:,1:end-1) = delay_buffer(:,2:end);
-    delay_buffer(:,end)= x(end,:)';
-    
-    
-    clear u_Lin_MPC;
-    for i=1:length(x)
-        switch p.low_level
-            case 'None'
-                u_Lin_MPC(i) = u_lin_k(1);
-            case 'CLF'
-                u_Lin_MPC(i) = FL_CLF1(t(i),x(i,:));
-        end
-    end
+
     
     if isempty(T_Lin_MPC)
         T_Lin_MPC = [T_Lin_MPC; t];
         X_Lin_MPC = [X_Lin_MPC; x];
         XD_Lin_MPC = [XD_Lin_MPC; [d_x(t) d_x_d(t)]];
-        U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC'];
+        U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC];
         U_FF_MPC_CLF = [U_FF_MPC_CLF; u_lin_k(1)*ones(size(t))];
     else
         T_Lin_MPC = [T_Lin_MPC; t(2:end)+T_Lin_MPC(end)];
         X_Lin_MPC = [X_Lin_MPC; x(2:end,:)];
         XD_Lin_MPC = [XD_Lin_MPC; [d_x(t(2:end)) d_x_d(t(2:end))]];
-        U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC(2:end)'];
+        U_Lin_MPC = [U_Lin_MPC; u_Lin_MPC(2:end)];
         U_FF_MPC_CLF = [U_FF_MPC_CLF; u_lin_k(1)*ones(size(t(2:end)))];
     end
     XD_Lin_MPC(end,:) = NaN; % to separate trajectories

@@ -42,7 +42,8 @@ end
 
 %% MPC-CLF proposed approach
 % p.low_level = 'None';
-p.low_level = 'CLF';
+% p.low_level = 'CLF';
+p.low_level = 'FL';
 [X_Lin_MPC_CLF, T_Lin_MPC_CLF, U_Lin_MPC_CLF, X_K_MPC_CLF, XD_Lin_MPC, u_Lin_MPC_CLF, U_FF_MPC_CLF] = MPC_Bez(p, d, o, T_FL_MPC, X_FL_MPC, U_FL_MPC);
 
 %% Plotting
