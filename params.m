@@ -62,7 +62,7 @@ p.MPC_CLF.aux_stage_cost = 1;
 %% Constraints
 % State and Input bounds
 p.Const.A_in = [1 0; -1 0; 0 1; 0 -1];
-p.Const.b_in = [3; 3; 0.5; 2];
+p.Const.b_in = [10; 10; 0.5; 2];
 p.Const.u_max = 20;
 p.Const.u_min = -p.Const.u_max;
 
