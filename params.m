@@ -13,12 +13,12 @@ p.low_level = 'CLF';
 % p.low_level = 'FL';
 
 %% ODE params
-p.ODE.tspan = [0 10];
+p.ODE.tspan = [0 20];
 p.ODE.X0 = [-2 -2];
 p.ODE.Xf = [0; 0];
 
 p.sensor_samples_per_sec = 30;
-p.noise_mag = 0.05;
+p.noise_mag = 0.0;
 
 %% Gains
 % FL:
@@ -46,7 +46,7 @@ end
 % MPC-CLF (proposed):
 p.MPC_CLF.order = 3;
 p.MPC_CLF.alpha_MPCFL = .5; % Lf
-p.MPC_CLF.beta_MPCFL = 0;  % Lg
+p.MPC_CLF.beta_MPCFL = .1;  % Lg
 p.MPC_CLF.gamma_MPCFL = 4*max(eig(p.CLF.P_lyap))^3/min(eig(p.CLF.Q))^2; % Robust_level_Set_value
 p.MPC_CLF.Gamma_MPCFL = sqrt(p.MPC_CLF.gamma_MPCFL*p.noise_mag^2/min(eig(p.CLF.P_lyap))); % E_bar (i.e. sqrt(gamma/lambda_min(P))
 p.MPC_CLF.delta_MPCFL = p.MPC_CLF.alpha_MPCFL+sqrt(1+p.MPC_CLF.alpha_MPCFL^2);

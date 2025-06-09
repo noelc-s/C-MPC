@@ -70,13 +70,14 @@ V_point = @(x) eta_point(x(1),x(2))'*P_lyap*eta_point(x(1),x(2));
 
 yalmip('clear')
 % P_lyapre-size
-A = cell(N-1);
-B = cell(N-1);
+A_ = cell(N-1);
+B_ = cell(N-1);
 C = cell(N-1);
 Ad_k = zeros(state_dim, state_size_without_terminal);
 Bd_k = zeros(state_dim, N-1);
 Cd_k = zeros(state_dim, N-1);
 N_k = zeros(2,N-1);
+c_k = zeros(2,N-1);
 Gamma_k = zeros(N-1,1);
 x_lin_k = zeros(N-1,2);
 u_lin_k = zeros(N-1,1);
@@ -91,7 +92,7 @@ u_lin_km1 = zeros(N-1,1);
 % Optimizer variables
 states = sdpvar(state_size_with_terminal,1);
 inputs = sdpvar(input_size,1);
-auxiliaries = sdpvar(auxiliary_size,1);
+% auxiliaries = sdpvar(auxiliary_size,1);
 slack = sdpvar(1);
 Ad_ = sdpvar(state_dim, state_size_without_terminal);
 Bd_ = sdpvar(state_dim, N-1);
@@ -117,9 +118,10 @@ vel3 = sdpvar(N-1,1);
 vel4 = sdpvar(N-1,1);
 
 u_k = sdpvar(N-1,1);
-s = sdpvar(2,N-1);
-t = sdpvar(1,N-1);
-w = sdpvar(3,N-1);
+c_ = sdpvar(2,N-1);
+% s = sdpvar(2,N-1);
+% t = sdpvar(1,N-1);
+% w = sdpvar(3,N-1);
 
 [Low, Diag] = ldl(M_k);
 P_ldl = real(sqrtm(Diag))*Low'; % it's real, I swear
@@ -138,31 +140,58 @@ for i = 1:N-1
     Constraints = [Constraints vel3(i,1) == H(3,:)*[pos1(i,1) pos2(i,1) pos3(i,1) pos4(i,1)]'];
     
     Constraints = [Constraints u_k(i,1) == inputs((i-1)*input_dim+1:i*input_dim)];
-    Constraints = [Constraints s(:,i) == auxiliaries((i-1)*auxiliary_dim+1:(i)*auxiliary_dim)];
+%     Constraints = [Constraints s(:,i) == auxiliaries((i-1)*auxiliary_dim+1:(i)*auxiliary_dim)];
     
     % Dynamics
     Constraints = [Constraints [pos4(i,1); vel4(i,1)] == Ad_(1:state_dim,(i-1)*state_dim+1:(i)*state_dim)*[pos1(i,1); vel1(i,1)] ...
         + Bd_(1:state_dim, i)*u_k(i,1) + Cd_(1:state_dim, i)];
-    %     Constraints = [Constraints norm(sqrtm(M_k)*s(:,i) + 1/2*inv(sqrtm(M_k))*N_k_(:,i),2) <= (1/4*N_k_(:,i)'*inv(M_k)*N_k_(:,i)-(u_max- Gamma_k_(i)))^(1/2)];
-    %     Constraints = [Constraints s(:,i)'*M_k*s(:,i) + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= u_max];
-    Constraints = [Constraints w(:,i) == [s(:,i); t(:,i)]];
-    Constraints = [Constraints t(:,i) + 1/4 + N_k_(:,i)'*s(:,i) + Gamma_k_(i) <= p.Const.u_max];
-    Constraints = [Constraints norm([P_ldl zeros(2,1); zeros(1,2) 1]*w(:,i),2) <= t(:,i) + 1/2];
-    Constraints = [Constraints [norm([pos1(i,1); vel1(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(1,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos2(i,1); vel2(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(2,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-    Constraints = [Constraints [norm([pos3(i,1); vel3(i,1)]-x_lin_(i,:)',2); ...
-        norm([vel1(i,1) vel2(i,1) vel3(i,1) vel4(i,1)]*H(3,:)'-o.Lf2y_func(x_lin_(i,1),x_lin_(i,2)),2)] <= s(:,i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) <= p.Const.u_max-Gamma_k_(i)];
-%     Constraints = [Constraints inputs((i-1)*input_dim+1:i*input_dim) >= p.Const.u_min+Gamma_k_(i)];
+    %%% Input
+    A_ = eye(2);
+    B_ = eye(2);
+    y = x_lin_(i,:)';
+    z = x_lin_(i,:)';
+    A_mix = [c_(1,i)*A_(1,:) + c_(2,i)*B_(1,:);...
+    c_(1,i)*A_(1,:) - c_(2,i)*B_(1,:);...
+    -c_(1,i)*A_(1,:) + c_(2,i)*B_(1,:);...
+    -c_(1,i)*A_(1,:) - c_(2,i)*B_(1,:);...
+    c_(1,i)*A_(1,:) + c_(2,i)*B_(2,:);...
+    c_(1,i)*A_(1,:) - c_(2,i)*B_(2,:);...
+    -c_(1,i)*A_(1,:) + c_(2,i)*B_(2,:);...
+    -c_(1,i)*A_(1,:) - c_(2,i)*B_(2,:);...
+    c_(1,i)*A_(2,:) + c_(2,i)*B_(1,:);...
+    c_(1,i)*A_(2,:) - c_(2,i)*B_(1,:);...
+    -c_(1,i)*A_(2,:) + c_(2,i)*B_(1,:);...
+    -c_(1,i)*A_(2,:) - c_(2,i)*B_(1,:);...
+    c_(1,i)*A_(2,:) + c_(2,i)*B_(2,:);...
+    c_(1,i)*A_(2,:) - c_(2,i)*B_(2,:);...
+    -c_(1,i)*A_(2,:) + c_(2,i)*B_(2,:);...
+    -c_(1,i)*A_(2,:) - c_(2,i)*B_(2,:)];
+b_mix = [c_(1,i)*y(1) + c_(2,i)*z(1);...
+    c_(1,i)*y(1) - c_(2,i)*z(1);...
+    -c_(1,i)*y(1) + c_(2,i)*z(1);...
+    -c_(1,i)*y(1) - c_(2,i)*z(1);...
+    c_(1,i)*y(1) + c_(2,i)*z(2);...
+    c_(1,i)*y(1) - c_(2,i)*z(2);...
+    -c_(1,i)*y(1) + c_(2,i)*z(2);...
+    -c_(1,i)*y(1) - c_(2,i)*z(2);...
+    c_(1,i)*y(2) + c_(2,i)*z(1);...
+    c_(1,i)*y(2) - c_(2,i)*z(1);...
+    -c_(1,i)*y(2) + c_(2,i)*z(1);...
+    -c_(1,i)*y(2) - c_(2,i)*z(1);...
+    c_(1,i)*y(2) + c_(2,i)*z(2);...
+    c_(1,i)*y(2) - c_(2,i)*z(2);...
+    -c_(1,i)*y(2) + c_(2,i)*z(2);...
+    -c_(1,i)*y(2) - c_(2,i)*z(2)];
+%     k = @(x) norm(A_mix*x-b_mix,inf) - 1;
+    Constraints = [Constraints A_mix*[pos1(i,1); vel1(i,1)]-b_mix <= 1];
+%     Constraints = [Constraints -A_mix*[pos1(i,1); vel1(i,1)]+b_mix <= 1];
     % b_k in X \ominus E
     Constraints = [Constraints A_in*[pos1(i,1); vel1(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
     Constraints = [Constraints A_in*[pos2(i,1); vel2(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
     Constraints = [Constraints A_in*[pos3(i,1); vel3(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
     Constraints = [Constraints A_in*[pos4(i,1); vel4(i,1)] <= b_in-sqrt(2*gamma_MPCFL*p.noise_mag^2)*diag(A_in*P_lyap*A_in')];%+slack];
-    Constraints = [Constraints s(:,i) >= 0];
     %     Constraints = [Constraints norm(s(:,i),2) <= 1];
+    s = size(Constraints);
 end
 
 % Terminal Set
@@ -178,15 +207,14 @@ Aux = aux_stage_cost*eye(auxiliary_dim*(N-1));
 W = 1e9;
 % Q = blkdiag(Q,R,Aux,1e9);
 % f = zeros(total_dim+1,1);
-Objective = 1/2*(states'*Q*states + inputs'*R*inputs + auxiliaries'*Aux*auxiliaries + slack'*W*slack);
+Objective = 1/2*(states'*Q*states + inputs'*R*inputs + slack'*W*slack);
 
 % SP_lyapQ_epsilon = 0.1;
 % SQP_lyapconverged = false;
 
 P = optimizer(Constraints,Objective,sdpsettings('solver','mosek','verbose',0),...
-    {Ad_,Bd_,Cd_,N_k_,Gamma_k_,x_lin_,u_lin_,x0_},...
-    {states,inputs,auxiliaries,slack,pos1,pos2,pos3,pos4,vel1,vel2,vel3,vel4,u_k,s,t,w});
-
+    {Ad_,Bd_,Cd_,N_k_,Gamma_k_,x_lin_,u_lin_,x0_,c_},...
+    {states,inputs,slack,pos1,pos2,pos3,pos4,vel1,vel2,vel3,vel4,u_k});
 setup_t = toc;
 
 %%% Get linearizations at origin for backup plan
@@ -225,6 +253,11 @@ for iter = 1:p.ODE.tspan(end)/dt
         N_k(:,i) = [2*alpha_MPCFL*beta_MPCFL*Gamma_MPCFL+alpha_MPCFL*norm_G_pinv+beta_MPCFL*norm_K*Gamma_MPCFL, ...
             norm_G_pinv + beta_MPCFL*Gamma_MPCFL];
         Gamma_k(i) = (beta_MPCFL*Gamma_MPCFL^2+norm_G_pinv*Gamma_MPCFL)*(alpha_MPCFL + norm_K);
+        
+        offset = p.Const.u_max-Gamma_k(i);
+        p1 = [(-N_k(1,i) + sqrt(N_k(1,i)^2+4*M_k(1,1)*offset))/(2*M_k(1,1)) 0];
+        p2 = [0 (-N_k(2,i) + sqrt(N_k(2,i)^2+4*M_k(2,2)*offset))/(2*M_k(2,2))];
+        c_k(:,i) = [1/p1(1); 1/p2(2)];
     end
     
     % Constrain acceleration of starting point
@@ -250,7 +283,7 @@ for iter = 1:p.ODE.tspan(end)/dt
     %         diagnostics = optimize(Constraints, 1/2*vars'*Q*vars + f'*vars + ...
     %             0*norm(p_dd_0' - f_'-g_'.*inputs,2).^2,opts);
     tic
-    [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,x0});
+    [sol, diagnostics,d1,d2,d3,d4] = P({Ad_k,Bd_k,Cd_k,N_k,Gamma_k,x_lin_k,u_lin_k,x0,c_k});
     solve_t(iter) = toc;
     if iter == 1 & diagnostics ~= 0
         error('Issue with Mosek in proposed');
